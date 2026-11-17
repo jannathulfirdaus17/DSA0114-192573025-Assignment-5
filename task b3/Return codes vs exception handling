@@ -1,0 +1,66 @@
+#include <iostream>
+#include <vector>
+#include <stdexcept>
+#include <chrono>
+#include <iomanip>
+using namespace std;
+using namespace chrono;
+volatile int resultSink = 0;
+bool validateReturn(double amount) {
+    if (amount < 0)
+        return false;
+    return true;
+}
+bool validateException(double amount) {
+    if (amount < 0)
+        throw invalid_argument("negative amount");
+    return true;
+}
+void runTest(int invalidPercent) {
+    const int N = 1000000;
+    vector<double> bills(N, 1000.0);
+    int invalidCount = N * invalidPercent / 100;
+    for (int i = 0; i < invalidCount; i++)
+        bills[i] = -100.0;
+    cout << "\nInvalid bills: " << invalidPercent << "%\n";
+    // Return code measurement
+    int valid1 = 0;
+    auto start1 = steady_clock::now();
+    for (double amount : bills) {
+        if (validateReturn(amount))
+            valid1++;
+    }
+    auto stop1 = steady_clock::now();
+    resultSink = valid1;
+    double returnTime =
+        duration<double, milli>(stop1 - start1).count();
+    // Exception measurement
+    int valid2 = 0;
+    auto start2 = steady_clock::now();
+    for (double amount : bills) {
+        try {
+            if (validateException(amount))
+                valid2++;
+        }
+        catch (const invalid_argument&) {
+            // Invalid bill handled
+        }
+    }
+    auto stop2 = steady_clock::now();
+    resultSink = valid2;
+    double exceptionTime =
+        duration<double, milli>(stop2 - start2).count();
+    cout << "Return code time: "
+         << returnTime << " ms\n";
+    cout << "Exception time: "
+         << exceptionTime << " ms\n";
+    cout << "Valid bills: "
+         << valid1 << " and " << valid2 << '\n';
+}
+int main() {
+    cout << fixed << setprecision(3);
+    runTest(0);
+    runTest(1);
+    runTest(50);
+    return 0;
+}
