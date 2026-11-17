@@ -1,0 +1,107 @@
+#include <iostream>
+#include <vector>
+#include <variant>
+#include <memory>
+#include <iomanip>
+using namespace std;
+// Virtual function approach
+class Bill {
+public:
+    virtual double total() const = 0;
+    virtual ~Bill() = default;
+};
+class OutPatient : public Bill {
+    double consultation, tests;
+public:
+    OutPatient(double c, double t)
+        : consultation(c), tests(t) {}
+    double total() const override {
+        return consultation + tests;
+    }
+};
+class InPatient : public Bill {
+    int days;
+    double rate, surgery;
+public:
+    InPatient(int d, double r, double s)
+        : days(d), rate(r), surgery(s) {}
+    double total() const override {
+        return days * rate + surgery;
+    }
+};
+// Switch approach
+struct SwitchBill {
+    int type;
+    double a, b, c;
+};
+double switchTotal(const SwitchBill& bill) {
+    switch (bill.type) {
+        case 0:
+            return bill.a + bill.b;
+        case 1:
+            return bill.a * bill.b + bill.c;
+        default:
+            return 0;
+    }
+}
+// Variant approach
+struct OPVariant {
+    double consultation, tests;
+};
+struct IPVariant {
+    int days;
+    double rate, surgery;
+};
+using VariantBill = variant<OPVariant, IPVariant>;
+double variantTotal(const VariantBill& bill) {
+    return visit([](const auto& b) -> double {
+        using T = decay_t<decltype(b)>;
+        if constexpr (is_same_v<T, OPVariant>)
+            return b.consultation + b.tests;
+        else
+            return b.days * b.rate + b.surgery;
+    }, bill);
+}
+int main() {
+    vector<unique_ptr<Bill>> virtualBills;
+    vector<SwitchBill> switchBills;
+    vector<VariantBill> variantBills;
+    // Same 10 bills for all approaches
+    for (int i = 0; i < 10; i++) {
+        if (i % 2 == 0) {
+            double c = 500 + i * 100;
+            double t = 1200 + i * 50;
+            virtualBills.push_back(
+                make_unique<OutPatient>(c, t));
+            switchBills.push_back({0, c, t, 0});
+            variantBills.push_back(OPVariant{c, t});
+        }
+        else {
+            int d = 2 + i;
+            double r = 2500;
+            double s = 10000 + i * 1000;
+            virtualBills.push_back(
+                make_unique<InPatient>(d, r, s));
+            switchBills.push_back({1, (double)d, r, s});
+            variantBills.push_back(IPVariant{d, r, s});
+        }
+    }
+    double virtualSum = 0;
+    double switchSum = 0;
+    double variantSum = 0;
+    for (const auto& b : virtualBills)
+        virtualSum += b->total();
+    for (const auto& b : switchBills)
+        switchSum += switchTotal(b);
+    for (const auto& b : variantBills)
+        variantSum += variantTotal(b);
+    cout << fixed << setprecision(2);
+    cout << "Virtual total: " << virtualSum << '\n';
+    cout << "Switch total: " << switchSum << '\n';
+    cout << "Variant total: " << variantSum << '\n';
+    cout << "Virtual and switch match: "
+         << (virtualSum == switchSum ? "YES" : "NO") << '\n';
+    cout << "Virtual and variant match: "
+         << (virtualSum == variantSum ? "YES" : "NO") << '\n';
+    return 0;
+}
