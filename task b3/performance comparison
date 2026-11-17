@@ -1,0 +1,135 @@
+#include <iostream>
+#include <vector>
+#include <variant>
+#include <memory>
+#include <chrono>
+#include <iomanip>
+#include <type_traits>
+using namespace std;
+using namespace chrono;
+class Bill {
+public:
+    virtual double total() const = 0;
+    virtual ~Bill() = default;
+};
+class OP : public Bill {
+    double a, b;
+public:
+    OP(double x, double y) : a(x), b(y) {}
+    double total() const override { return a + b; }
+};
+class IP : public Bill {
+    int days;
+    double rate, surgery;
+public:
+    IP(int d, double r, double s)
+        : days(d), rate(r), surgery(s) {}
+    double total() const override {
+        return days * rate + surgery;
+    }
+};
+struct SwitchBill {
+    int type;
+    double a, b, c;
+};
+double switchTotal(const SwitchBill& b) {
+    switch (b.type) {
+        case 0: return b.a + b.b;
+        case 1: return b.a * b.b + b.c;
+        default: return 0;
+    }
+}
+struct OPData {
+    double a, b;
+};
+struct IPData {
+    int days;
+    double rate, surgery;
+};
+using VBill = variant<OPData, IPData>;
+double variantTotal(const VBill& b) {
+    return visit([](const auto& x) -> double {
+        using T = decay_t<decltype(x)>;
+        if constexpr (is_same_v<T, OPData>)
+            return x.a + x.b;
+        else
+            return x.days * x.rate + x.surgery;
+    }, b);
+}
+volatile double resultSink = 0;
+void benchmarkVirtual(size_t n) {
+    vector<OP> outpatient;
+    vector<IP> inpatient;
+    vector<const Bill*> bills;
+    outpatient.reserve((n + 1) / 2);
+    inpatient.reserve(n / 2);
+    bills.reserve(n);
+    for (size_t i = 0; i < n; i++) {
+        if (i % 2 == 0) {
+            outpatient.emplace_back(500, 1200);
+            bills.push_back(&outpatient.back());
+        } else {
+            inpatient.emplace_back(3, 2500, 40000);
+            bills.push_back(&inpatient.back());
+        }
+    }
+    auto start = steady_clock::now();
+    double sum = 0;
+    for (const Bill* b : bills)
+        sum += b->total();
+    auto stop = steady_clock::now();
+    resultSink = sum;
+    cout << "Virtual: "
+         << duration<double, milli>(stop - start).count()
+         << " ms, total = " << sum << '\n';
+}
+void benchmarkSwitch(size_t n) {
+    vector<SwitchBill> bills;
+    bills.reserve(n);
+
+    for (size_t i = 0; i < n; i++) {
+        if (i % 2 == 0)
+            bills.push_back({0, 500, 1200, 0});
+        else
+            bills.push_back({1, 3, 2500, 40000});
+    }
+    auto start = steady_clock::now();
+    double sum = 0;
+    for (const auto& b : bills)
+        sum += switchTotal(b);
+    auto stop = steady_clock::now();
+    resultSink = sum;
+    cout << "Switch: "
+         << duration<double, milli>(stop - start).count()
+         << " ms, total = " << sum << '\n';
+}
+void benchmarkVariant(size_t n) {
+    vector<VBill> bills;
+    bills.reserve(n);
+    for (size_t i = 0; i < n; i++) {
+        if (i % 2 == 0)
+            bills.push_back(OPData{500, 1200});
+        else
+            bills.push_back(IPData{3, 2500, 40000});
+    }
+    auto start = steady_clock::now();
+    double sum = 0;
+    for (const auto& b : bills)
+        sum += variantTotal(b);
+    auto stop = steady_clock::now();
+    resultSink = sum;
+    cout << "Variant: "
+         << duration<double, milli>(stop - start).count()
+         << " ms, total = " << sum << '\n';
+}
+int main() {
+    size_t sizes[] = {1000, 1000000, 10000000};
+    cout << fixed << setprecision(3);
+    for (size_t n : sizes) {
+        cout << "\nBills: " << n << '\n';
+        benchmarkVirtual(n);
+        benchmarkSwitch(n);
+        benchmarkVariant(n);
+    }
+    return 0;
+}
