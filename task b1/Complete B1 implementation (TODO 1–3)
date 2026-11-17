@@ -1,0 +1,106 @@
+#include <iostream>
+#include <string>
+#include <algorithm>
+using namespace std;
+class Bill {
+protected:
+    string patient;
+public:
+    explicit Bill(const string& p) : patient(p) {}
+    virtual ~Bill() = default;
+    virtual double total() const = 0;
+    virtual string type() const {
+        return "Bill";
+    }
+    void print() const {
+        cout << type() << " " << patient
+             << ": " << total() << '\n';
+    }
+};
+class OutPatient : public Bill {
+    double consultation, tests;
+public:
+    OutPatient(const string& p, double c, double t)
+        : Bill(p), consultation(c), tests(t) {}
+    double total() const override {
+        return consultation + tests;
+    }
+    string type() const override {
+        return "OP";
+    }
+};
+class InPatient : public Bill {
+    int days;
+    double perDay, surgery;
+public:
+    InPatient(const string& p, int d, double rate, double s)
+        : Bill(p), days(d), perDay(rate), surgery(s) {}
+    double total() const override {
+        return days * perDay + surgery;
+    }
+    string type() const override {
+        return "IP";
+    }
+};
+class Payer {
+public:
+    virtual ~Payer() = default;
+    virtual double amountCovered(const Bill& b) const = 0;
+};
+class SelfPay : public Payer {
+public:
+    double amountCovered(const Bill& b) const override {
+        return b.total();
+    }
+};
+class Insurance : public Payer {
+    double coverLimit, coPayment;
+public:
+    Insurance(double limit, double percentage)
+        : coverLimit(limit), coPayment(percentage) {}
+    double amountCovered(const Bill& b) const override {
+        double eligible = min(b.total(), coverLimit);
+        return eligible * (1.0 - coPayment / 100.0);
+    }
+};
+class GovernmentScheme : public Payer {
+    double packageRate;
+public:
+    explicit GovernmentScheme(double rate)
+        : packageRate(rate) {}
+    double amountCovered(const Bill&) const override {
+        return packageRate;
+    }
+};
+int main() {
+    Bill* bills[] = {
+        new OutPatient("Ravi", 500, 1200),
+        new InPatient("Meena", 3, 2500, 40000)
+    };
+    Payer* payers[] = {
+        new SelfPay(),
+        new Insurance(50000, 20),
+        new GovernmentScheme(30000)
+    };
+    cout << "BILL DETAILS\n";
+    double sum = 0;
+    for (Bill* b : bills) {
+        b->print();
+        sum += b->total();
+    }
+    cout << "Total " << sum << "\n\n";
+    cout << "PAYER DETAILS\n";
+    for (int i = 0; i < 3; i++) {
+        cout << "\nPayer " << i + 1 << ":\n";
+
+        for (Bill* b : bills) {
+            cout << b->type() << " covered amount: "
+                 << payers[i]->amountCovered(*b) << '\n';
+        }
+    }
+    for (Bill* b : bills)
+        delete b;
+    for (Payer* p : payers)
+        delete p;
+    return 0;
+}
