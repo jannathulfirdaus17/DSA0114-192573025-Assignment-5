@@ -1,0 +1,31 @@
+#include <iostream>
+using namespace std;
+class Bill {
+public:
+    virtual double total() const = 0;
+    ~Bill() {
+        cout << "Bill destructor called\n";
+    }
+};
+class OutPatient : public Bill {
+    int* data;
+public:
+    OutPatient() {
+        data = new int[100];
+        cout << "OutPatient constructor called\n";
+    }
+
+    double total() const override {
+        return 1700;
+    }
+    ~OutPatient() {
+        delete[] data;
+        cout << "OutPatient destructor called\n";
+    }
+};
+int main() {
+    Bill* b = new OutPatient();
+    cout << "Bill total: " << b->total() << '\n';
+    delete b;
+    return 0;
+}
