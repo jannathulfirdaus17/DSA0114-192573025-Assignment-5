@@ -1,0 +1,98 @@
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <limits>
+#include <new>
+#include <cstddef>
+using namespace std;
+// Tracks object destruction
+class ResourceGuard {
+    string name;
+public:
+    explicit ResourceGuard(const string& n) : name(n) {
+        cout << name << " created\n";
+    }
+    ~ResourceGuard() {
+        cout << name << " destroyed\n";
+    }
+};
+
+// Test 1: Negative charge
+void validateCharge(double amount) {
+    if (amount < 0)
+        throw invalid_argument("negative charge");
+    cout << "Charge valid\n";
+}
+// Test 2: Claim above cover
+void validateClaim(double billed, double cover) {
+    if (billed > cover)
+        throw runtime_error("claim exceeds cover");
+    cout << "Claim approved\n";
+}
+// Test 3: Unknown package
+void validatePackage(const string& code) {
+    if (code != "PKG100" && code != "PKG200")
+        throw runtime_error("unknown package code");
+    cout << "Package valid\n";
+}
+// Test 4: Invalid text conversion
+void convertAmount(const string& text) {
+    double amount = stod(text);
+    cout << "Converted amount: " << amount << '\n';
+}
+// Test 5: Memory allocation failure
+void allocateMemory() {
+    cout << "Requesting large memory allocation\n";
+    volatile size_t requested =
+        numeric_limits<size_t>::max();
+    char* data = new char[requested];
+    delete[] data;
+}
+int main() {
+    cout << "--- ERROR CONDITION TESTING ---\n\n";
+    try {
+        ResourceGuard r("Negative charge test");
+        validateCharge(-500);
+    }
+    catch (const exception& e) {
+        cout << "Caught: " << e.what() << "\n\n";
+    }
+    try {
+        ResourceGuard r("Insurance test");
+        validateClaim(60000, 50000);
+    }
+    catch (const exception& e) {
+        cout << "Caught: " << e.what() << "\n\n";
+    }
+    try {
+        ResourceGuard r("Package test");
+        validatePackage("PKG999");
+    }
+    catch (const exception& e) {
+        cout << "Caught: " << e.what() << "\n\n";
+    }
+    try {
+        ResourceGuard r("Text conversion test");
+        convertAmount("hospital");
+    }
+    catch (const invalid_argument& e) {
+        cout << "Caught: " << e.what() << "\n\n";
+    }
+    try {
+        ResourceGuard r("Memory test");
+        allocateMemory();
+    }
+    catch (const bad_alloc& e) {
+        cout << "Caught bad_alloc: " << e.what() << "\n\n";
+    }
+    // Test 6: Catch-all handler
+    try {
+        ResourceGuard r("Catch-all test");
+        throw 100;
+    }
+    catch (...) {
+        cout << "Caught unknown exception using catch(...)\n\n";
+    }
+    cout << "Program continues after all errors\n";
+    return 0;
+}
