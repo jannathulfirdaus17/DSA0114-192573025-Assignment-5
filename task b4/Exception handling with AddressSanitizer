@@ -1,0 +1,71 @@
+#include <iostream>
+#include <memory>
+#include <vector>
+#include <stdexcept>
+using namespace std;
+class Bill {
+public:
+    virtual double total() const = 0;
+    virtual ~Bill() {
+        cout << "Bill destroyed\n";
+    }
+};
+class OutPatient : public Bill {
+    double consultation, tests;
+public:
+    OutPatient(double c, double t)
+        : consultation(c), tests(t) {
+        cout << "OutPatient created\n";
+    }
+    double total() const override {
+        return consultation + tests;
+    }
+    ~OutPatient() override {
+        cout << "OutPatient destroyed\n";
+    }
+};
+class InPatient : public Bill {
+    int days;
+    double rate, surgery;
+public:
+    InPatient(int d, double r, double s)
+        : days(d), rate(r), surgery(s) {
+        cout << "InPatient created\n";
+    }
+
+    double total() const override {
+        return days * rate + surgery;
+    }
+    ~InPatient() override {
+        cout << "InPatient destroyed\n";
+    }
+};
+void validateBill(double amount) {
+    if (amount < 0)
+        throw invalid_argument("negative bill amount");
+    cout << "Bill validation successful\n";
+}
+int main() {
+    {
+        vector<unique_ptr<Bill>> bills;
+        bills.push_back(
+            make_unique<OutPatient>(500, 1200));
+        bills.push_back(
+            make_unique<InPatient>(3, 2500, 40000));
+        cout << "\nProcessing bills\n";
+        for (const auto& b : bills)
+            cout << "Bill total: " << b->total() << '\n';
+        cout << "\nException testing\n";
+        try {
+            validateBill(1700);
+            validateBill(-500);
+        }
+        catch (const invalid_argument& e) {
+            cout << "Exception caught: "
+                 << e.what() << '\n';
+        }
+        cout << "\nLeaving scope\n";
+    }
+    cout << "All objects destroyed successfully\n";
+    return 0;
+}
